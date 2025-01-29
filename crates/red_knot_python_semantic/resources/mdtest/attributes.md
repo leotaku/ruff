@@ -25,17 +25,13 @@ class C:
 
 c_instance = C(1)
 
-# TODO: Mypy/pyright infer `int | str` here. We want this to be `Unknown | Literal[1, "a"]`
-# error: [unresolved-attribute]
-reveal_type(c_instance.inferred_from_value)  # revealed: Unknown
+reveal_type(c_instance.inferred_from_value)  # revealed: Unknown | Literal[1, "a"]
 
 # TODO: Same here. This should be `Unknown | Literal[1, "a"]`
-# error: [unresolved-attribute]
 reveal_type(c_instance.inferred_from_other_attribute)  # revealed: Unknown
 
 # TODO: should be `int | None`
-# error: [unresolved-attribute]
-reveal_type(c_instance.inferred_from_param)  # revealed: Unknown
+reveal_type(c_instance.inferred_from_param)  # revealed: Unknown | int | None
 
 reveal_type(c_instance.declared_only)  # revealed: bytes
 
@@ -143,17 +139,13 @@ class C:
 
 c_instance = C(1)
 
-# TODO: Should be `Unknown | Literal[1, "a"]`
-# error: [unresolved-attribute]
-reveal_type(c_instance.inferred_from_value)  # revealed: Unknown
+reveal_type(c_instance.inferred_from_value)  # revealed: Unknown | Literal[1, "a"]
 
 # TODO: Should be `Unknown | Literal[1, "a"]`
-# error: [unresolved-attribute]
 reveal_type(c_instance.inferred_from_other_attribute)  # revealed: Unknown
 
 # TODO: Should be `int | None`
-# error: [unresolved-attribute]
-reveal_type(c_instance.inferred_from_param)  # revealed: Unknown
+reveal_type(c_instance.inferred_from_param)  # revealed: Unknown | int | None
 
 reveal_type(c_instance.declared_only)  # revealed: bytes
 
@@ -267,8 +259,7 @@ reveal_type(C.pure_class_variable)  # revealed: Unknown
 
 c_instance = C()
 # TODO: should be `Literal["overwritten on class"]`
-# error: [unresolved-attribute]
-reveal_type(c_instance.pure_class_variable)  # revealed: Unknown
+reveal_type(c_instance.pure_class_variable)  # revealed: Unknown | Literal["value set in class method"]
 
 # TODO: should raise an error.
 c_instance.pure_class_variable = "value set on instance"

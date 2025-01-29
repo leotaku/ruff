@@ -4138,6 +4138,48 @@ impl<'db> Class<'db> {
         SymbolAndQualifiers(Symbol::Unbound, TypeQualifiers::empty())
     }
 
+    fn implicit_instance_attribute_lookup(
+        self,
+        db: &'db dyn Db,
+        body_scope: ScopeId<'db>,
+        name: &str,
+    ) -> Option<SymbolAndQualifiers<'db>> {
+        // Check if the attribute is implicitly declared/defined in a method.
+        let index = semantic_index(db, body_scope.file(db));
+        for attribute_assignment in index
+            .attribute_assignments(db, body_scope, name)
+            .unwrap_or(&[])
+        {
+            if let Some(annotation_expr) = attribute_assignment.annotation(db) {
+                let inference = infer_expression_types(db, annotation_expr);
+                let expr_scope = annotation_expr.scope(db);
+                let annotation_ty = inference.expression_type(
+                    annotation_expr
+                        .node_ref(db)
+                        .scoped_expression_id(db, expr_scope),
+                );
+
+                return Some(SymbolAndQualifiers(
+                    annotation_ty.into(),
+                    TypeQualifiers::empty(),
+                ));
+            } else if let Some(value_expr) = attribute_assignment.value(db) {
+                let inference = infer_expression_types(db, value_expr);
+                let expr_scope = value_expr.scope(db);
+                let value_ty = inference
+                    .expression_type(value_expr.node_ref(db).scoped_expression_id(db, expr_scope));
+
+                let attribute_type = UnionType::from_elements(db, [Type::unknown(), value_ty]);
+                return Some(SymbolAndQualifiers(
+                    attribute_type.into(),
+                    TypeQualifiers::empty(),
+                ));
+            }
+        }
+
+        None
+    }
+
     /// A helper function for `instance_member` that looks up the `name` attribute only on
     /// this class, not on its superclasses.
     fn own_instance_member(self, db: &'db dyn Db, name: &str) -> SymbolAndQualifiers<'db> {
@@ -4148,23 +4190,6 @@ impl<'db> Class<'db> {
         // - The descriptor protocol
 
         let body_scope = self.body_scope(db);
-
-        let index = semantic_index(db, body_scope.file(db));
-        for attribute_assignment in index
-            .attribute_assignments(db, body_scope, name)
-            .unwrap_or(&[])
-        {
-            let annotatation_expr = attribute_assignment.annotation(db);
-            let inference = infer_expression_types(db, annotatation_expr);
-            let expr_scope = annotatation_expr.scope(db);
-            let annotation_ty = inference.expression_type(
-                annotatation_expr
-                    .node_ref(db)
-                    .scoped_expression_id(db, expr_scope),
-            );
-
-            return SymbolAndQualifiers(annotation_ty.into(), TypeQualifiers::empty());
-        }
 
         let table = symbol_table(db, body_scope);
 
@@ -4189,6 +4214,12 @@ impl<'db> Class<'db> {
                     }
                 }
                 Ok(symbol @ SymbolAndQualifiers(Symbol::Unbound, qualifiers)) => {
+                    if let Some(symbol) =
+                        self.implicit_instance_attribute_lookup(db, body_scope, name)
+                    {
+                        return symbol;
+                    }
+
                     let bindings = use_def.public_bindings(symbol_id);
                     let inferred = symbol_from_bindings(db, bindings);
 
@@ -4203,6 +4234,10 @@ impl<'db> Class<'db> {
                 }
             }
         } else {
+            if let Some(symbol) = self.implicit_instance_attribute_lookup(db, body_scope, name) {
+                return symbol;
+            }
+
             Symbol::Unbound.into()
         }
     }

@@ -899,6 +899,33 @@ where
                             unpack: None,
                             first: false,
                         }),
+                        ast::Expr::Attribute(ast::ExprAttribute {
+                            value: object,
+                            attr,
+                            ..
+                        }) => {
+                            if let Some(class_body_scope) = self.parent_class_body_scope() {
+                                if object.as_name_expr().as_ref().is_some_and(|name| {
+                                    Some(&name.id) == self.current_first_parameter_name.as_ref()
+                                }) && self.current_scope_is_function_body()
+                                {
+                                    self.attribute_assignments
+                                        .entry(class_body_scope)
+                                        .or_default()
+                                        .entry(attr.id().as_str().to_owned())
+                                        .or_default()
+                                        .push(AttributeAssignment::new(
+                                            self.db,
+                                            self.file,
+                                            None,
+                                            Some(value),
+                                            countme::Count::default(),
+                                        ));
+                                }
+                            }
+
+                            None
+                        }
                         _ => None,
                     };
 
@@ -931,10 +958,13 @@ where
                     self.visit_expr(&node.target);
 
                     if let Some(class_body_scope) = self.parent_class_body_scope() {
-                        if let ast::Expr::Attribute(ast::ExprAttribute { value, attr, .. }) =
-                            &*node.target
+                        if let ast::Expr::Attribute(ast::ExprAttribute {
+                            value: object,
+                            attr,
+                            ..
+                        }) = &*node.target
                         {
-                            if value.as_name_expr().as_ref().is_some_and(|name| {
+                            if object.as_name_expr().as_ref().is_some_and(|name| {
                                 Some(&name.id) == self.current_first_parameter_name.as_ref()
                             }) && self.current_scope_is_function_body()
                             {
@@ -946,7 +976,8 @@ where
                                     .push(AttributeAssignment::new(
                                         self.db,
                                         self.file,
-                                        annotation_expr,
+                                        Some(annotation_expr),
+                                        None,
                                         countme::Count::default(),
                                     ));
                             }
