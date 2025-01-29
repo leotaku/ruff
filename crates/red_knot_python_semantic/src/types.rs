@@ -4139,7 +4139,6 @@ impl<'db> Class<'db> {
     }
 
     fn implicit_instance_attribute_lookup(
-        self,
         db: &'db dyn Db,
         body_scope: ScopeId<'db>,
         name: &str,
@@ -4215,7 +4214,7 @@ impl<'db> Class<'db> {
                 }
                 Ok(symbol @ SymbolAndQualifiers(Symbol::Unbound, qualifiers)) => {
                     if let Some(symbol) =
-                        self.implicit_instance_attribute_lookup(db, body_scope, name)
+                        Self::implicit_instance_attribute_lookup(db, body_scope, name)
                     {
                         return symbol;
                     }
@@ -4234,7 +4233,7 @@ impl<'db> Class<'db> {
                 }
             }
         } else {
-            if let Some(symbol) = self.implicit_instance_attribute_lookup(db, body_scope, name) {
+            if let Some(symbol) = Self::implicit_instance_attribute_lookup(db, body_scope, name) {
                 return symbol;
             }
 
