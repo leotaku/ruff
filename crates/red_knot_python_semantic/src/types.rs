@@ -4135,7 +4135,7 @@ impl<'db> Class<'db> {
 
         // TODO: The symbol is not present in any class body, but it could be implicitly
         // defined in `__init__` or other methods anywhere in the MRO.
-        todo_type!("implicit instance attribute").into()
+        SymbolAndQualifiers(Symbol::Unbound, TypeQualifiers::empty())
     }
 
     /// A helper function for `instance_member` that looks up the `name` attribute only on
@@ -4148,6 +4148,24 @@ impl<'db> Class<'db> {
         // - The descriptor protocol
 
         let body_scope = self.body_scope(db);
+
+        let index = semantic_index(db, body_scope.file(db));
+        for attribute_assignment in index
+            .attribute_assignments(db, body_scope, name)
+            .unwrap_or(&[])
+        {
+            let annotatation_expr = attribute_assignment.annotation(db);
+            let inference = infer_expression_types(db, annotatation_expr);
+            let expr_scope = annotatation_expr.scope(db);
+            let annotation_ty = inference.expression_type(
+                annotatation_expr
+                    .node_ref(db)
+                    .scoped_expression_id(db, expr_scope),
+            );
+
+            return SymbolAndQualifiers(annotation_ty.into(), TypeQualifiers::empty());
+        }
+
         let table = symbol_table(db, body_scope);
 
         if let Some(symbol_id) = table.symbol_id_by_name(name) {
