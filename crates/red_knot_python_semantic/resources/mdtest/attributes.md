@@ -632,7 +632,7 @@ reveal_type(b"foo".join)  # revealed: @Todo(bound method)
 reveal_type(b"foo".endswith)  # revealed: @Todo(bound method)
 ```
 
-## Instance attribute failure cases
+## Instance attribute edge cases
 
 ### Assignment to attribute that does not correspond to the instance
 
@@ -644,6 +644,21 @@ class C:
 def f(c: C):
     # error: [unresolved-attribute]
     reveal_type(c.x)  # revealed: Unknown
+```
+
+### Nested classes
+
+```py
+class Outer:
+    def __init__(self):
+        self.x: int = 1
+
+    class Inner:
+        def __init__(self):
+            self.x: str = "a"
+
+reveal_type(Outer().x)  # revealed: int
+reveal_type(Outer.Inner().x)  # revealed: str
 ```
 
 ### Shadowing of `self`
@@ -660,6 +675,20 @@ class C:
 
 # TODO: this should be an error
 C().x
+```
+
+### Assignment to `self` from nested function
+
+```py
+class C:
+    def __init__(self) -> None:
+        def set_attribute(value: str):
+            self.x: str = value
+        set_attribute("a")
+
+# TODO: ideally, this would be `str`. Mypy supports this, pyright does not.
+# error: [unresolved-attribute]
+reveal_type(C().x)  # revealed: Unknown
 ```
 
 ## References
